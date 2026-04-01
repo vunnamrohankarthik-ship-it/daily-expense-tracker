@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Analytics and Graphs - Visualize your expense data with interactive charts">
+<meta name="keywords" content="expense analytics, graphs, visualization, charts, analysis">
+<title>Analytics & Graphs - Daily Expense Tracker</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<header>
+<h1>Analytics & Graphs</h1>
+<nav>
+<a href="index.html">Home</a>
+<a href="monthwise.html">Monthwise</a>
+<a href="analytics.html">Analytics</a>
+<a href="about.html">About</a>
+</nav>
+</header>
+
+<main>
+
+<section class="analytics-container">
+
+<h2>Select Time Period</h2>
+
+<div class="time-period-selector">
+<button class="time-btn" data-period="1month" aria-label="View 1 month data">1 Month</button>
+<button class="time-btn" data-period="3months" aria-label="View 3 months data">3 Months</button>
+<button class="time-btn" data-period="6months" aria-label="View 6 months data">6 Months</button>
+<button class="time-btn" data-period="all" aria-label="View all data">All Time</button>
+</div>
+
+</section>
+
+<section class="chart-container">
+
+<h3 class="chart-title">Summary Statistics</h3>
+
+<div class="stats-grid">
+<div class="stat-card">
+<div class="stat-label">Total Expenses</div>
+<div class="stat-value" id="totalStat">₹0</div>
+</div>
+
+<div class="stat-card">
+<div class="stat-label">Number of Expenses</div>
+<div class="stat-value" id="countStat">0</div>
+</div>
+
+<div class="stat-card">
+<div class="stat-label">Average Expense</div>
+<div class="stat-value" id="avgStat">₹0</div>
+</div>
+
+<div class="stat-card">
+<div class="stat-label">Highest Expense</div>
+<div class="stat-value" id="maxStat">₹0</div>
+</div>
+</div>
+
+</section>
+
+<section class="chart-container">
+
+<h3 class="chart-title">Category Breakdown</h3>
+<div class="category-chart" id="categoryChart"></div>
+
+</section>
+
+<section class="chart-container">
+
+<h3 class="chart-title">Detailed Breakdown</h3>
+<div id="detailedStats"></div>
+
+</section>
+
+</main>
+
+<footer>
+<p>&copy; 2026 Daily Expense Tracker</p>
+</footer>
+
+<script src="script.js"></script>
+<script>
+let currentPeriod = '1month';
+
+document.addEventListener('DOMContentLoaded', function() {
+  setupTimeButtons();
+  displayAnalytics('1month');
+});
+
+function setupTimeButtons() {
+  document.querySelectorAll('.time-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      currentPeriod = this.getAttribute('data-period');
+      displayAnalytics(currentPeriod);
+    });
+  });
+  
+  // Set initial active button
+  document.querySelector('[data-period="1month"]').classList.add('active');
+}
+
+function getDataForPeriod(period) {
+  try {
+    const expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+    const today = new Date();
+    let startDate = new Date();
+    
+    if(period === '1month') {
+      startDate.setMonth(today.getMonth() - 1);
+    } else if(period === '3months') {
+      startDate.setMonth(today.getMonth() - 3);
+    } else if(period === '6months') {
+      startDate.setMonth(today.getMonth() - 6);
+    } else {
+      startDate = new Date('2000-01-01');
+    }
+    
+    return expenses.filter(exp => {
+      const expDate = new Date(exp.date);
+      return expDate >= startDate && expDate <= today;
+    });
+    
+  } catch(error) {
+    console.error('Error getting data:', error);
+    return [];
+  }
+}
+
+function displayAnalytics(period) {
+  const filteredExpenses = getDataForPeriod(period);
+  
+  if(filteredExpenses.length === 0) {
+    document.getElementById('categoryChart').innerHTML = '<div class="empty-chart">No data available</div>';
+    document.getElementById('detailedStats').innerHTML = '<div class="empty-chart">No data available</div>';
+    return;
+  }
+  
+  displayStatistics(filteredExpenses);
+  displayCategoryBreakdown(filteredExpenses);
+  displayDetailedStats(filteredExpenses);
+}
+
+function displayStatistics(expenses) {
+  const total = expenses.reduce((sum, exp) => sum + parseFloat(exp.amount), 0);
+  const count = expenses.length;
+  const avg = count > 0 ? total / count : 0;
+  const max = count > 0 ? Math.max(...expenses.map(e => parseFloat(e.amount))) : 0;
+  
+  document.getElementById('totalStat').textContent = '₹' + total.toFixed(2);
+  document.getElementById('countStat').textContent = count;
+  document.getElementById('avgStat').textContent = '₹' + avg.toFixed(2);
+  document.getElementById('maxStat').textContent = '₹' + max.toFixed(2);
+}
+
+function displayCategoryBreakdown(expenses) {
+  const categoryTotals = {};
+  
+  expenses.forEach(exp => {
+    if(!categoryTotals[exp.category]) {
+      categoryTotals[exp.category] = 0;
+    }
+    categoryTotals[exp.category] += parseFloat(exp.amount);
+  });
+  
+  const categoryChart = document.getElementById('categoryChart');
+  categoryChart.innerHTML = '';
+  
+  for(let category in categoryTotals) {
+    const amount = categoryTotals[category];
+    
+    const barHtml = `
+      <div class="category-bar">
+        <div class="category-label">${category} - ₹${amount.toFixed(2)}</div>
+      </div>
+    `;
+    
+    categoryChart.innerHTML += barHtml;
+  }
+}
+
+function displayDetailedStats(expenses) {
+  const categoryStats = {};
+  
+  expenses.forEach(exp => {
+    if(!categoryStats[exp.category]) {
+      categoryStats[exp.category] = {
+        total: 0,
+        count: 0,
+        avg: 0
+      };
+    }
+    categoryStats[exp.category].total += parseFloat(exp.amount);
+    categoryStats[exp.category].count += 1;
+  });
+  
+  for(let cat in categoryStats) {
+    categoryStats[cat].avg = categoryStats[cat].total / categoryStats[cat].count;
+  }
+  
+  let html = '<table><thead><tr><th>Category</th><th>Total</th><th>Count</th><th>Average</th></tr></thead><tbody>';
+  
+  for(let cat in categoryStats) {
+    const stats = categoryStats[cat];
+    html += `<tr>
+      <td>${cat}</td>
+      <td>₹${stats.total.toFixed(2)}</td>
+      <td>${stats.count}</td>
+      <td>₹${stats.avg.toFixed(2)}</td>
+    </tr>`;
+  }
+  
+  html += '</tbody></table>';
+  document.getElementById('detailedStats').innerHTML = html;
+}
+</script>
+
+</body>
+
+</html>
